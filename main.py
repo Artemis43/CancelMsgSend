@@ -4,17 +4,25 @@ import os
 from pyrogram import Client
 from pyrogram.errors import FloodWait, PeerIdInvalid
 from keep_alive import keep_alive
+
 keep_alive()
 
 # Define your variables
 api_id = os.environ.get('Id')
 api_hash = os.environ.get('Hash')
-session_name = os.environ.get('Zenitsu')
+session_name = os.environ.get('Session')
 group_username = os.environ.get('Destination')  # or group invite link
 log_chat_username = os.environ.get('Log')  # or log chat invite link
 interval = os.environ.get('Interval')  # Interval in seconds
-Prefix = os.environ.get('Prefix') #eg: /ql or /ql6...
+Prefix = os.environ.get('Prefix') # eg: /ql or /ql6...
 
+# Check for None values
+if None in (api_id, api_hash, session_name, group_username, log_chat_username, interval, Prefix):
+    print("One or more required environment variables are missing.")
+    exit(1)
+
+# Convert interval to integer
+interval = int(interval)
 
 # Read the CSV file
 df = pd.read_csv('match_names.csv')
