@@ -13,6 +13,8 @@ session_name = os.environ.get('Zenitsu')
 group_username = os.environ.get('Destination')  # or group invite link
 log_chat_username = os.environ.get('Log')  # or log chat invite link
 interval = os.environ.get('Interval')  # Interval in seconds
+Prefix = os.environ.get('Prefix') #eg: /ql or /ql6...
+
 
 # Read the CSV file
 df = pd.read_csv('match_names.csv')
@@ -48,7 +50,7 @@ def send_magnet_links():
             repack_size = row['repack_size']
             magnet_link = row['magnet_link']
 
-            message = f"Game Name: {game_name}\nRepack Size: {repack_size}\nMagnet Link: {magnet_link}"
+            message = f"{Prefix} {magnet_link}"
 
             try:
                 app.send_message(group_id, message)
