@@ -7,27 +7,26 @@ import requests
 from pyrogram import Client, filters
 from pyrogram.errors import FloodWait, PeerIdInvalid, SessionPasswordNeeded
 from keep_alive import keep_alive
-#from dotenv import load_dotenv
+from dotenv import load_dotenv
 import sqlite3
 
 # Load environment variables from .env file
-#load_dotenv()
+load_dotenv()
 
 keep_alive()
 
 # Define your variables
-api_id = os.getenv('ApiId') #Both
-api_hash = os.getenv('ApiHash') #Both
-session_url = os.getenv('SessionUrl')  # URL to download the session file #Both
-group_username = os.getenv('DestinationUsername')  # or group invite link #LinkSend
-log_chat_username = os.getenv('LogsInChat')  # or log chat invite link #LinkSend
-interval = int(os.getenv('IntervalBetweenLeech', 60))  # Interval in seconds, default to 60 seconds #LinkSend
-Prefix = os.getenv('PrefixForBot')  # e.g., /ql or /ql6... #LinkSend
-csv_url = os.getenv('CsvUrlForMagnetLinks')  # URL of the CSV file
-user_id = os.getenv('UserIdForRegexMatch')  # Your user ID #Cancelmsg
-bot_username = os.getenv('BotToBeMonitoredNoAt')  # Bot's username without '@' #Cancelmsg
-group_id = os.getenv('GroupToBeMonitoredNoAt')  # Username of the group without '@' #Cancelmsg
-cancel_interval = int(os.getenv('CancelMessageInterval', 10))  # Default to 10 seconds #Cancelmsg
+api_id = os.getenv('ApiId')
+api_hash = os.getenv('ApiHash')
+session_url = os.getenv('SessionUrl')
+group_name = os.getenv('DestinationChatName')  # Group name for the destination group
+log_chat_id = int(os.getenv('LogsInChatId'))  # Chat ID for log chat
+interval = int(os.getenv('IntervalBetweenLeech', 60))  # Interval in seconds, default to 60 seconds
+Prefix = os.getenv('PrefixForBot')  # e.g., /ql or /ql6...
+csv_url = os.getenv('CsvUrlForMagnetLinks')
+user_id = os.getenv('UserIdForRegexMatch')  # Your user ID
+bot_username = os.getenv('BotToBeMonitoredNoAt')  # Bot's username without '@'
+cancel_interval = int(os.getenv('CancelMessageInterval', 10))  # Default to 10 seconds
 
 # Download the CSV file
 csv_file_path = 'match_games.csv'
@@ -93,6 +92,71 @@ session = "send"
 # Initialize the Pyrogram Client with session file
 app = Client(session, api_id=api_id, api_hash=api_hash)
 
+# Function to get the group ID from the group name
+async def get_group_id_by_name(group_name):
+    try:
+        async for dialog in app.get_dialogs():
+            if dialog.chat.title == group_name:
+                return dialog.chat.id
+        print(f"Group ID for {group_name} not found.")
+        return None
+    except Exception as e:
+        print(f"Error retrieving group ID for {group_name}: {e}")
+        return None
+    
+# Function to send magnet links
+async def send_magnet_links():
+    log_data = []
+
+    try:
+        await app.start()
+        print("Client started successfully.")
+
+        # Get the group ID
+        group_id = await get_group_id_by_name(group_name)
+        if not group_id:
+            return
+
+        for index, row in df.iterrows():
+            game_name = row['game_name']
+            repack_size = row['repack_size']
+            magnet_link = row['magnet_link']
+
+            message = f"{Prefix} {magnet_link}"
+
+            try:
+                await app.send_message(group_id, message)
+                sent_time = pd.Timestamp.now()
+                log_data.append([sent_time, game_name, group_id])
+                print(f"Sent message for {game_name} at {sent_time}")
+            except FloodWait as e:
+                print(f"Flood wait for {e.x} seconds.")
+                await asyncio.sleep(e.x)
+                await app.send_message(group_id, message)
+                sent_time = pd.Timestamp.now()
+                log_data.append([sent_time, game_name, group_id])
+                print(f"Sent message for {game_name} at {sent_time}")
+            except PeerIdInvalid as e:
+                print(f"PeerIdInvalid: {e}. Check if the group ID is correct and accessible.")
+                return
+            except Exception as e:
+                print(f"Error: {e}")
+
+            await asyncio.sleep(interval)
+
+        # Create the log CSV
+        log_df = pd.DataFrame(log_data, columns=['sent_time', 'game_name', 'destination_chat'])
+        log_df.to_csv('sent_log.csv', index=False)
+
+        # Send the log CSV to the log chat
+        await app.send_document(log_chat_id, 'sent_log.csv')
+        print(f"Log file sent to chat {log_chat_id}")
+
+    except SessionPasswordNeeded:
+        print("Two-step verification is enabled. Please provide the password.")
+    finally:
+        print("Client finished sending messages.")
+
 # Function to save the line to CSV with UTF-8 encoding
 def save_line_to_csv(line):
     with open('gids.csv', 'a', newline='', encoding='utf-8') as csvfile:
@@ -121,94 +185,44 @@ def extract_and_save_gid(line):
 def clear_gids_csv():
     with open('gids.csv', 'w', newline='', encoding='utf-8') as csvfile:
         csvfile.truncate()
-    print("gids.csv has been cleared.")
+    print("gids_extracted.csv formed => I am Ready!")
 
 # Function to clear the contents of gids_extracted.csv
 def clear_gids_extracted_csv():
     with open('gids_extracted.csv', 'w', newline='', encoding='utf-8') as csvfile:
         csvfile.truncate()
-    print("gids_extracted.csv has been cleared.")
+    print("gids_extracted.csv deployed => Here goes Nothing!")
 
 # Function to send a custom message after a specific interval
 async def send_custom_message(extracted_part):
     await asyncio.sleep(cancel_interval)  # Wait for 10 seconds (adjust the interval as needed)
     custom_message = f"/cancel{extracted_part}@{bot_username}"
-    await app.send_message(group_id, custom_message)
+    group_id = await get_group_id_by_name(group_name)
+    if group_id:
+        await app.send_message(group_id, custom_message)
     clear_gids_extracted_csv()
     print(f"Sent message: {custom_message}")
 
-@app.on_message(filters.chat(group_id))
+@app.on_message()
 async def handler(client, message):
-    message_text = message.text
-    # Split the message into lines
-    lines = message_text.split('\n')
-    
-    # Iterate over the lines
-    for i, line in enumerate(lines):
-        if f"ID: {user_id}" in line:
-            if i + 1 < len(lines):  # Ensure there is a line for the GID
-                gid_line = lines[i + 1]
-                save_line_to_csv(gid_line)
+    # Get the group ID using the group name
+    group_id = await get_group_id_by_name(group_name)
+    if not group_id:
+        print(f"Could not retrieve group ID for {group_name}.")
+        return
 
-# Function to get chat ID from username or invite link
-async def get_chat_id(username):
-    try:
-        chat = await app.get_chat(username)
-        return chat.id
-    except PeerIdInvalid:
-        print(f"Invalid username or invite link: {username}")
-        return None
+    if message.chat.id == group_id:
+        message_text = message.text
+        # Split the message into lines
+        lines = message_text.split('\n')
 
-# Function to send magnet links
-async def send_magnet_links():
-    log_data = []
+        # Iterate over the lines
+        for i, line in enumerate(lines):
+            if f"ID: {user_id}" in line:
+                if i + 1 < len(lines):  # Ensure there is a line for the GID
+                    gid_line = lines[i + 1]
+                    save_line_to_csv(gid_line)
 
-    try:
-        await app.start()
-        print("Client started successfully.")
-
-        group_id2 = group_username
-        log_chat_id = await get_chat_id(log_chat_username)
-
-        if group_id2 is None or log_chat_id is None:
-            print("Unable to fetch group or log chat ID. Exiting.")
-            return
-
-        for index, row in df.iterrows():
-            game_name = row['game_name']
-            repack_size = row['repack_size']
-            magnet_link = row['magnet_link']
-
-            message = f"{Prefix} {magnet_link}"
-
-            try:
-                await app.send_message(group_id2, message)
-                sent_time = pd.Timestamp.now()
-                log_data.append([sent_time, game_name, group_id2])
-                print(f"Sent message for {game_name} at {sent_time}")
-            except FloodWait as e:
-                print(f"Flood wait for {e.x} seconds.")
-                await asyncio.sleep(e.x)
-                await app.send_message(group_id2, message)
-                sent_time = pd.Timestamp.now()
-                log_data.append([sent_time, game_name, group_id2])
-                print(f"Sent message for {game_name} at {sent_time}")
-
-            await asyncio.sleep(interval)
-
-        # Create the log CSV
-        log_df = pd.DataFrame(log_data, columns=['sent_time', 'game_name', 'destination_chat'])
-        log_df.to_csv('sent_log.csv', index=False)
-
-        # Send the log CSV to the log chat
-        await app.send_document(log_chat_id, 'sent_log.csv')
-        print(f"Log file sent to chat {log_chat_id}")
-
-    except SessionPasswordNeeded:
-        print("Two-step verification is enabled. Please provide the password.")
-    finally:
-        await app.stop()
-        print("Client stopped.")
 
 if __name__ == "__main__":
     app.run(send_magnet_links())
