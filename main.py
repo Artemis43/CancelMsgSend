@@ -7,11 +7,11 @@ import requests
 from pyrogram import Client, filters
 from pyrogram.errors import FloodWait, PeerIdInvalid, SessionPasswordNeeded
 from keep_alive import keep_alive
-from dotenv import load_dotenv
+#from dotenv import load_dotenv
 import sqlite3
 
 # Load environment variables from .env file
-load_dotenv()
+#load_dotenv()
 
 keep_alive()
 
