@@ -21,13 +21,13 @@ api_hash = os.getenv('ApiHash') #Both
 session_url = os.getenv('SessionUrl')  # URL to download the session file #Both
 group_username = os.getenv('DestinationUsername')  # or group invite link #LinkSend
 log_chat_username = os.getenv('LogsInChat')  # or log chat invite link #LinkSend
-interval = int(os.getenv('IntervalBetweenLeech', 60))  # Interval in seconds, default to 60 seconds #LinkSend
+interval = int(os.getenv('IntervalBetweenLeech'))  # Interval in seconds, default to 60 seconds #LinkSend
 Prefix = os.getenv('PrefixForBot')  # e.g., /ql or /ql6... #LinkSend
 csv_url = os.getenv('CsvUrlForMagnetLinks')  # URL of the CSV file
 user_id = os.getenv('UserIdForRegexMatch')  # Your user ID #Cancelmsg
 bot_username = os.getenv('BotToBeMonitoredNoAt')  # Bot's username without '@' #Cancelmsg
 group_id = os.getenv('GroupToBeMonitoredNoAt')  # Username of the group without '@' #Cancelmsg
-cancel_interval = int(os.getenv('CancelMessageInterval', 10))  # Default to 10 seconds #Cancelmsg
+cancel_interval = int(os.getenv('CancelMessageInterval'))  # Default to 10 seconds #Cancelmsg
 
 # Download the CSV file
 csv_file_path = 'match_games.csv'
