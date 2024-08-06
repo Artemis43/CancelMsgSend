@@ -1,5 +1,4 @@
 Pyrogram==2.0.106
-pandas==2.2.2
 requests==2.32.3
 tgcrypto==1.2.5
 Flask==3.0.3
