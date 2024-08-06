@@ -2,13 +2,15 @@ import os
 import requests
 import csv
 import asyncio
+import time
 from pyrogram import Client
-from keep_alive import keep_alive
+from keep_alive import keep_alive  # Ensure you have this module or replace it with a similar functionality
 #from dotenv import load_dotenv
+
 # Load environment variables from .env file
 #load_dotenv()
 
-keep_alive()
+keep_alive()  # Keeps the script running (useful for cloud deployment)
 
 # Define your variables
 api_id = os.getenv('ApiId')  # Your API ID from Telegram
@@ -17,7 +19,7 @@ session_url = os.getenv('SessionUrl')  # URL to download the session file
 group_name = os.getenv('DestinationChatName')  # Group name for the destination group
 user_id = os.getenv('UserIdForRegexMatch')  # Your user ID to match in messages
 bot_username = os.getenv('BotToBeMonitoredNoAt')  # Bot's username without '@'
-cancel_interval = int(os.getenv('CancelMessageInterval'))  # Interval to wait before sending a message, default to 10 seconds
+cancel_interval = int(os.getenv('CancelMessageInterval', 10))  # Interval to wait before sending a message, default to 10 seconds
 
 # Download the session file
 session_file = 'send.session'
@@ -27,7 +29,6 @@ try:
     with open(session_file, 'wb') as f:
         f.write(session_response.content)  # Write the session file to disk
     print(f"Session file downloaded and saved as {session_file}")
-
 except requests.exceptions.RequestException as e:
     print(f"Failed to download session file: {e}")
     exit(1)
@@ -43,15 +44,18 @@ app = Client(session, api_id=api_id, api_hash=api_hash)
 
 # Function to get the group ID from the group name
 async def get_group_id_by_name(group_name):
-    try:
-        async for dialog in app.get_dialogs():
-            if dialog.chat.title == group_name:
-                return dialog.chat.id
-        print(f"Group ID for {group_name} not found.")
-        return None
-    except Exception as e:
-        print(f"Error retrieving group ID for {group_name}: {e}")
-        return None
+    for attempt in range(5):  # Retry up to 5 times
+        try:
+            async for dialog in app.get_dialogs():
+                if dialog.chat.title == group_name:
+                    return dialog.chat.id
+            print(f"Group ID for {group_name} not found.")
+            return None
+        except Exception as e:
+            print(f"Error retrieving group ID for {group_name}: {e}")
+            if attempt < 4:  # Don't sleep on the last attempt
+                time.sleep(3)  # Sleep for 3 seconds before retrying
+
 
 # Function to save the line to CSV with UTF-8 encoding
 def save_line_to_csv(line):
@@ -75,7 +79,7 @@ def extract_and_save_gid(line):
         # Schedule the message to be sent
         asyncio.create_task(send_custom_message(extracted_part))
     except IndexError:
-        print("The line does not contain an underscore.")
+        print("The line does not contain the expected format.")
 
 # Function to clear the contents of gids.csv
 def clear_gids_csv():
@@ -99,6 +103,7 @@ async def send_custom_message(extracted_part):
     clear_gids_extracted_csv()
     print(f"Sent message: {custom_message}")
 
+# Function to handle new messages
 @app.on_message()
 async def handler(client, message):
     # Get the group ID using the group name
@@ -118,3 +123,13 @@ async def handler(client, message):
                 if i + 1 < len(lines):  # Ensure there is a line for the GID
                     gid_line = lines[i + 1]
                     save_line_to_csv(gid_line)
+
+# Start the client
+async def main():
+    await app.start()
+    print("Listening for messages in the group...")
+    await asyncio.Event().wait()  # Keeps the client running
+
+if __name__ == "__main__":
+    loop = asyncio.get_event_loop_policy().get_event_loop()
+    loop.run_until_complete(main())
