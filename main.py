@@ -54,7 +54,7 @@ async def get_group_id_by_name(group_name):
         except Exception as e:
             print(f"Error retrieving group ID for {group_name}: {e}")
             if attempt < 4:  # Don't sleep on the last attempt
-                time.sleep(3)  # Sleep for 3 seconds before retrying
+                time.sleep(30)  # Sleep for 3 seconds before retrying
 
 
 # Function to save the line to CSV with UTF-8 encoding
