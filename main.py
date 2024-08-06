@@ -4,9 +4,9 @@ import csv
 import asyncio
 from pyrogram import Client
 from keep_alive import keep_alive
-from dotenv import load_dotenv
+#from dotenv import load_dotenv
 # Load environment variables from .env file
-load_dotenv()
+#load_dotenv()
 
 keep_alive()
 
