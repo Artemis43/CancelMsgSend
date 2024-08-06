@@ -22,7 +22,7 @@ bot_username = os.getenv('BotToBeMonitoredNoAt')  # Bot's username without '@'
 cancel_interval = int(os.getenv('CancelMessageInterval', 10))  # Interval to wait before sending a message, default to 10 seconds
 
 # Download the session file
-session_file = 'monitor.session'
+session_file = 'send.session'
 try:
     session_response = requests.get(session_url)
     session_response.raise_for_status()  # Raise an exception for HTTP errors
@@ -38,7 +38,7 @@ if not os.path.exists(session_file):
     print(f"Session file {session_file} does not exist.")
     exit(1)
 
-session = "monitor"
+session = "send"
 # Initialize the Pyrogram Client with session file
 app = Client(session, api_id=api_id, api_hash=api_hash)
 
